@@ -28,7 +28,7 @@ fn main() -> ResultGram<()> {
 }
 
 async fn async_main() -> ResultGram<()> {
-    println!("Connecting to Telegram...");
+    log::info!("Connecting to Telegram");
     dotenv::dotenv().expect("failed to find .env file");
 
     let config = AppConfig::from_env();
@@ -49,7 +49,7 @@ async fn async_main() -> ResultGram<()> {
         task::spawn(async move {
             match handle_update(bot_handler, update).await {
                 Ok(_) => {}
-                Err(e) => eprintln!("Error handling updates!: {e}"),
+                Err(e) => log::error!("Error handling updates!: {e}"),
             }
         });
     }

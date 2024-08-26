@@ -1,6 +1,6 @@
 use crate::custom_result;
 use crate::message_handler::command_handler::handle_command;
-use crate::message_handler::document_handler::handle_document;
+use crate::message_handler::document_handler::{cancel_download, handle_document};
 use custom_result::ResultUpdate;
 use grammers_client::types::Media::Document;
 use grammers_client::types::{media, Message};
@@ -15,6 +15,12 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
             }
             message
         }
+        Update::CallbackQuery(message) => {
+            println!("Got CallbackQuery Query {:?}", message.data());
+            let response = cancel_download(message.data()).await;
+            message.answer().text(response).send().await?;
+            return Ok(());
+        }
         _ => return Ok(()),
     };
     let chat = message.chat();
@@ -22,7 +28,7 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     let document = get_document(message.clone());
     // Handle Document if available
     if document.is_some() {
-        handle_document(bot, chat, document.unwrap()).await?;
+        handle_document(bot, chat, message, document.unwrap()).await?;
         return Ok(());
     }
 
@@ -33,8 +39,8 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     }
 
     // Handle Rest of the messages
-    println!("Got Message {}", message.text());
-    bot.send_message(&chat, "Please Send a Message Media")
+    log::debug!("Got Message {}", message.text());
+    bot.send_message(&chat, "Please Send a Message Media /help")
         .await?;
     Ok(())
 }

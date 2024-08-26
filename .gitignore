@@ -3,3 +3,4 @@
 /session
 .env
 bot.session
+.env.prod

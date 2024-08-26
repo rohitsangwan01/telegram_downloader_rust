@@ -2,15 +2,17 @@ use crate::custom_result;
 use custom_result::ResultGram;
 use grammers_client::types::{Chat, Message};
 use grammers_client::Client;
+use local_ip_address::local_ip;
 
-pub async fn handle_command(bot: Client, chat: Chat, message: Message) -> ResultGram<()> {
+pub async fn handle_command(_: Client, chat: Chat, message: Message) -> ResultGram<()> {
     let command: &str = message.text();
     let response: String = match command {
         "/start" => handle_start(chat.clone()),
+        "/ip" => handle_ip(),
+        "/info" => handle_system_info(),
         _ => handle_help(chat.clone()),
     };
-
-    bot.send_message(&chat, response).await?;
+    message.reply(response).await?;
     return Ok(());
 }
 
@@ -19,8 +21,33 @@ fn handle_start(chat: Chat) -> String {
     return format!("Welcom {}, Send me files to download", name).to_string();
 }
 
+fn handle_ip() -> String {
+    let my_local_ip = local_ip().unwrap();
+    return format!("Here is your ip: {}", my_local_ip).to_string();
+}
+
+fn handle_system_info() -> String {
+    let fs_stats = fs2::statvfs("/").unwrap();
+    let total_space = fs_stats.total_space() as f64 / 1073741824.0;
+    let free_space: f64 = fs_stats.available_space() as f64 / 1073741824.0;
+    return format!(
+        "Here is your system info: \nTotal Space: {:.1} GB \nFree Space: {:.1} GB",
+        total_space, free_space
+    )
+    .to_string();
+}
+
 fn handle_help(chat: Chat) -> String {
     let name = chat.name();
-    return format!("Hey {name} \nsend /start to start the bot \nsend files to download")
-        .to_string();
+    return format!(
+        "
+        Hey {name}, Use these Commadns:
+        \n/start : To start the bot
+        \n/ip : Get your IP
+        \n/help: To get help
+        \n/info: To get system information
+        \nor send files to download
+        "
+    )
+    .to_string();
 }

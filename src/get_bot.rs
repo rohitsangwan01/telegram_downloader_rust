@@ -13,17 +13,18 @@ pub async fn get_bot(config: AppConfig) -> ResultGram<Client> {
         api_hash: config.api_hash.to_string().clone(),
         params: InitParams {
             catch_up: false,
+            flood_sleep_threshold: 60,
             ..Default::default()
         },
     })
     .await?;
-    println!("Bot Connected!");
+    log::info!("Bot Connected!");
 
     if !client.is_authorized().await? {
-        println!("Signing in...");
+        log::info!("Signing in...");
         client.bot_sign_in(config.bot_token.as_str()).await?;
         client.session().save_to_file(BOT_SESSION_FILE)?;
-        println!("Signed in!");
+        log::info!("Signed in!");
     }
 
     Ok(client)
