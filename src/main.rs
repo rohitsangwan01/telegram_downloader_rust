@@ -2,6 +2,7 @@ mod app_config;
 mod custom_result;
 mod get_bot;
 mod message_handler;
+mod utils;
 
 use app_config::AppConfig;
 use custom_result::ResultGram;

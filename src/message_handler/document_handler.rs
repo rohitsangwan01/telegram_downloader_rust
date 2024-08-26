@@ -1,15 +1,13 @@
 use crate::app_config::AppConfig;
 use crate::custom_result;
+use crate::utils::download_utils::{delete_file, download_media_concurrent};
 use custom_result::ResultGram;
-use grammers_client::types::{media, Chat, Downloadable, Media, Message};
+use grammers_client::types::{media, Chat, Message};
 use grammers_client::{button, reply_markup, Client, InputMessage};
 use std::collections::HashMap;
 use std::fs::create_dir_all;
-use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use tokio::{fs, io::AsyncWriteExt};
 
 lazy_static::lazy_static! {
     static ref CANCEL_DOWNLOAD: Arc<Mutex<HashMap<u8, Arc<AtomicBool>>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -64,12 +62,13 @@ pub async fn handle_document(
 
     let mut error: Option<String> = None;
 
-    if let Err(e) = download_file(
+    if let Err(e) = download_media_concurrent(
         bot.clone(),
-        message_reply.clone(),
+        &message.media().unwrap(),
         dest.clone(),
+        4,
+        message_reply.clone(),
         button_id,
-        document,
         should_cancel,
     )
     .await
@@ -104,120 +103,4 @@ pub async fn cancel_download(id: &[u8]) -> String {
         should_cancel.store(true, Ordering::SeqCst);
     }
     return "Download will be canceled shortly".to_string();
-}
-
-// Get chunks of file and save to storage
-async fn download_file(
-    bot: Client,
-    message: Message,
-    path: String,
-    button_id: &[u8],
-    document: media::Document,
-    should_cancel: Arc<AtomicBool>,
-) -> ResultGram<()> {
-    let mut download = bot.iter_download(&Downloadable::Media(Media::Document(document.clone())));
-    let mut file = fs::File::create(path.clone()).await?;
-    let total_size = document.size();
-    let mut downloaded_size: i64 = 0;
-    let mut last_update_time = Instant::now();
-    let mut last_downloaded_size = 0;
-    let mut last_progress_text: String = "".to_string();
-
-    let progress_text = format_message(document.name(), 0.0, downloaded_size as f64, 0.0);
-
-    message
-        .edit(
-            InputMessage::text(progress_text).reply_markup(&reply_markup::inline(vec![vec![
-                button::inline("Cancel", button_id),
-            ]])),
-        )
-        .await?;
-
-    while let Some(chunk) = download
-        .next()
-        .await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-    {
-        if should_cancel.load(Ordering::SeqCst) {
-            log::info!("Download canceled!");
-            file.flush().await?;
-            delete_file(path.clone()).await;
-            message.edit("Download Cancelled").await?;
-            return Ok(());
-        }
-
-        downloaded_size += chunk.len() as i64;
-
-        // Send updates in 5 seconds of interval
-        if last_update_time.elapsed().as_secs() >= 5 {
-            let bytes_downloaded_since_last_update = downloaded_size - last_downloaded_size;
-            let speed_mbps = (bytes_downloaded_since_last_update as f64 / (1024.0 * 1024.0))
-                / last_update_time.elapsed().as_secs_f64();
-
-            let progress_text = format_message(
-                document.name(),
-                downloaded_size as f64,
-                total_size as f64,
-                speed_mbps,
-            );
-
-            if last_progress_text != progress_text {
-                message
-                    .edit(InputMessage::text(progress_text.clone()).reply_markup(
-                        &reply_markup::inline(vec![vec![button::inline("Cancel", button_id)]]),
-                    ))
-                    .await?;
-                last_progress_text = progress_text;
-            }
-            last_update_time = Instant::now();
-            last_downloaded_size = downloaded_size;
-        }
-
-        file.write_all(&chunk).await?;
-    }
-
-    // Final update to indicate completion
-    message
-        .edit(format!("Download Complete! \nStored at: {}", path))
-        .await?;
-
-    Ok(())
-}
-
-/// Format the message sent to Bot
-fn format_message(name: &str, downloaded_size: f64, total_size: f64, speed: f64) -> String {
-    let bar_width = 10;
-
-    let progress = if total_size > 0.0 {
-        (downloaded_size / total_size) * 100.0
-    } else {
-        0.0
-    };
-
-    let filled_blocks: usize = (progress / 100.0 * bar_width as f64).round() as usize;
-    let empty_blocks = bar_width - filled_blocks;
-
-    let progress_bar = format!(
-        "[{}] {:.2}%",
-        "🟩".repeat(filled_blocks).to_string() + &"⬜".repeat(empty_blocks),
-        progress
-    );
-
-    return format!(
-        "Downloading {name}
-        \n{:.1} MB of {:.2} MB done.\n\n{}
-        \nSpeed {:.1} MB/s",
-        downloaded_size / (1024.0 * 1024.0),
-        total_size / (1024.0 * 1024.0),
-        progress_bar,
-        speed,
-    );
-}
-
-async fn delete_file(path: String) {
-    if let Err(err) = fs::remove_file(path).await {
-        log::error!("Failed to delete file: {}", err);
-    } else {
-        log::info!("File deleted successfully")
-    }
 }
