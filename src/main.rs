@@ -1,14 +1,13 @@
 mod app_config;
-mod custom_result;
 mod get_bot;
 mod message_handler;
 mod utils;
 
 use app_config::AppConfig;
-use custom_result::ResultGram;
 use get_bot::get_bot;
 use message_handler::default_handler::handle_update;
 use std::pin::pin;
+use utils::custom_result::ResultGram;
 
 use futures_util::future::{select, Either};
 use grammers_client::{session::PackedType, types::PackedChat, Client};

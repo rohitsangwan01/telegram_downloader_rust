@@ -1,7 +1,6 @@
-use crate::custom_result;
 use crate::message_handler::command_handler::handle_command;
 use crate::message_handler::document_handler::{cancel_download, handle_document};
-use custom_result::ResultUpdate;
+use crate::utils::custom_result::ResultUpdate;
 use grammers_client::types::Media::Document;
 use grammers_client::types::{media, Message};
 use grammers_client::{Client, Update};

@@ -2,7 +2,7 @@ use log::error;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use crate::custom_result::ResultGram;
+use crate::utils::custom_result::ResultGram;
 
 #[derive(Clone)]
 pub struct AppConfig {

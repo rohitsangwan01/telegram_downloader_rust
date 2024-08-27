@@ -1,9 +1,9 @@
-use crate::custom_result;
-use custom_result::ResultGram;
 use grammers_client::types::{Chat, Message};
 use grammers_client::Client;
 use local_ip_address::local_ip;
 use system_shutdown::reboot;
+
+use crate::utils::custom_result::ResultGram;
 
 const START_COMMAND: &str = "/start";
 const IP_COMMAND: &str = "/ip";

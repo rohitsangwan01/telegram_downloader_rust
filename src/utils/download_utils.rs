@@ -1,4 +1,3 @@
-use crate::custom_result::ResultGram;
 use crate::Client;
 use grammers_client::client::files::MAX_CHUNK_SIZE;
 use grammers_client::types::Media;
@@ -17,6 +16,8 @@ use tokio::{
     fs,
     io::{self, AsyncSeekExt, AsyncWriteExt},
 };
+
+use super::custom_result::ResultGram;
 
 /// Modified Version of `download_media_concurrent` from library
 /// Implement Cancellation of Download, and sends DownloadProgress to user
