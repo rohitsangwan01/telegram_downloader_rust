@@ -11,7 +11,7 @@ use message_handler::default_handler::handle_update;
 use std::pin::pin;
 
 use futures_util::future::{select, Either};
-use grammers_client::Client;
+use grammers_client::{session::PackedType, types::PackedChat, Client};
 use simple_logger::SimpleLogger;
 use tokio::{runtime, task};
 
@@ -32,10 +32,20 @@ async fn async_main() -> ResultGram<()> {
     log::info!("Connecting to Telegram");
     dotenv::dotenv().expect("failed to find .env file");
 
-    let config = AppConfig::from_env();
+    let config = AppConfig::from_env().unwrap();
 
     // Get Client
-    let bot: Client = get_bot(config.unwrap()).await?;
+    let bot: Client = get_bot(config.clone()).await?;
+    let user_id = config.user_id;
+    log::info!("Send message to: {}", user_id);
+
+    let packed_chat = PackedChat {
+        ty: PackedType::User,
+        id: user_id,
+        access_hash: Some(0),
+    };
+    let chat = bot.unpack_chat(packed_chat).await?;
+    bot.send_message(&chat, "Bot Started").await?;
 
     loop {
         let exit = pin!(async { tokio::signal::ctrl_c().await });

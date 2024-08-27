@@ -3,13 +3,21 @@ use custom_result::ResultGram;
 use grammers_client::types::{Chat, Message};
 use grammers_client::Client;
 use local_ip_address::local_ip;
+use system_shutdown::reboot;
+
+const START_COMMAND: &str = "/start";
+const IP_COMMAND: &str = "/ip";
+const INFO_COMMAND: &str = "/info";
+const REBOOT_COMMAND: &str = "/reboot";
+const HELP_COMMAND: &str = "/help";
 
 pub async fn handle_command(_: Client, chat: Chat, message: Message) -> ResultGram<()> {
     let command: &str = message.text();
     let response: String = match command {
-        "/start" => handle_start(chat.clone()),
-        "/ip" => handle_ip(),
-        "/info" => handle_system_info(),
+        START_COMMAND => handle_start(chat.clone()),
+        IP_COMMAND => handle_ip(),
+        INFO_COMMAND => handle_system_info(),
+        REBOOT_COMMAND => handle_reboot(),
         _ => handle_help(chat.clone()),
     };
     message.reply(response).await?;
@@ -37,17 +45,23 @@ fn handle_system_info() -> String {
     .to_string();
 }
 
+fn handle_reboot() -> String {
+    return match reboot() {
+        Ok(_) => return "Restarting".to_string(),
+        Err(error) => format!("Failed to shut down: {}", error),
+    };
+}
+
 fn handle_help(chat: Chat) -> String {
-    let name = chat.name();
+    let name: &str = chat.name();
     return format!(
-        "
-        Hey {name}, Use these Commadns:
-        \n/start : To start the bot
-        \n/ip : Get your IP
-        \n/help: To get help
-        \n/info: To get system information
-        \nor send files to download
-        "
+        "Hey {name}, Use these Commadns:.\n\
+        {START_COMMAND} : To start the bot\n\
+        {IP_COMMAND} : Get your IP\n\
+        {REBOOT_COMMAND} : To reboot the machine\n\
+        {INFO_COMMAND}: To get system information\n\
+        {HELP_COMMAND}: To get help\n\
+        \nor send files to download"
     )
     .to_string();
 }
