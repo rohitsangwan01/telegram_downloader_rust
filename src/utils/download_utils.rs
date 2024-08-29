@@ -60,17 +60,17 @@ pub async fn download_media_concurrent(
             let mut dc = None;
             loop {
                 // Calculate file offset
-                let offset: i64 = {
+                let offset: u64 = {
                     if let Some(offset) = retry_offset {
                         retry_offset = None;
                         offset
                     } else {
                         let mut i = part_index.lock().await;
                         *i += 1;
-                        (MAX_CHUNK_SIZE * (*i - 1)) as i64
+                        (MAX_CHUNK_SIZE as u64) * (*i - 1)
                     }
                 };
-                if offset > size {
+                if (offset as i64) > size {
                     break;
                 }
                 // Fetch from telegram
@@ -78,7 +78,7 @@ pub async fn download_media_concurrent(
                     precise: true,
                     cdn_supported: false,
                     location: location.clone(),
-                    offset,
+                    offset: offset as i64,
                     limit: MAX_CHUNK_SIZE,
                 };
                 let res = match dc {
