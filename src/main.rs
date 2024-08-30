@@ -28,12 +28,11 @@ fn main() -> ResultGram<()> {
 }
 
 async fn async_main() -> ResultGram<()> {
-    log::info!("Connecting to Telegram");
-    dotenv::dotenv().expect("failed to find .env file");
-
+    dotenv::dotenv().expect("please add .env file");
     let config = AppConfig::from_env().unwrap();
 
     // Get Client
+    log::info!("Connecting to Telegram");
     let bot: Client = get_bot(config.clone()).await?;
     let user_id = config.user_id;
     log::info!("Send message to: {}", user_id);

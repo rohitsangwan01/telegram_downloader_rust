@@ -1,10 +1,10 @@
+use super::custom_result::ResultGram;
 use crate::Client;
 use grammers_client::client::files::MAX_CHUNK_SIZE;
 use grammers_client::types::Media;
 use grammers_client::types::Message;
 use grammers_client::{button, grammers_tl_types, reply_markup, InputMessage, InvocationError};
 use grammers_tl_types as tl;
-use std::sync::atomic::AtomicBool;
 use std::{
     io::SeekFrom,
     sync::atomic::{AtomicI64, Ordering},
@@ -16,26 +16,33 @@ use tokio::{
     fs,
     io::{self, AsyncSeekExt, AsyncWriteExt},
 };
-
-use super::custom_result::ResultGram;
+use tokio_util::sync::CancellationToken;
 
 /// Modified Version of `download_media_concurrent` from library
 /// Implement Cancellation of Download, and sends DownloadProgress to user
 pub async fn download_media_concurrent(
     bot: Client,
-    media: &Media,
     path: String,
     workers: usize,
     message: Message,
     button_id: &[u8],
-    should_cancel: Arc<AtomicBool>,
+    cancel_token: CancellationToken,
 ) -> ResultGram<()> {
-    let document = match media {
+    let media = message.media().unwrap();
+    let document = match media.clone() {
         Media::Document(document) => document,
         _ => panic!("Only Document type is supported!"),
     };
     let size = document.size();
     let location = media.to_raw_input_location().unwrap();
+
+    let message_reply = message
+        .reply(
+            InputMessage::text("Downloading..").reply_markup(&reply_markup::inline(vec![vec![
+                button::inline("Cancel", button_id),
+            ]])),
+        )
+        .await?;
 
     // Allocate
     let mut file = fs::File::create(path.clone()).await?;
@@ -46,7 +53,7 @@ pub async fn download_media_concurrent(
     let (tx, mut rx) = unbounded_channel();
     let part_index = Arc::new(tokio::sync::Mutex::new(0));
     let downloaded_size = Arc::new(AtomicI64::new(0));
-    let mut tasks = vec![];
+    let mut tasks: Vec<tokio::task::JoinHandle<Result<(), InvocationError>>> = vec![];
 
     for _ in 0..workers {
         let location = location.clone();
@@ -54,11 +61,15 @@ pub async fn download_media_concurrent(
         let part_index = part_index.clone();
         let client = bot.clone();
         let downloaded_size = downloaded_size.clone();
+        let cancellation_token = cancel_token.clone();
 
         let task = tokio::task::spawn(async move {
             let mut retry_offset = None;
             let mut dc = None;
             loop {
+                if cancellation_token.is_cancelled() {
+                    return Ok(());
+                }
                 // Calculate file offset
                 let offset: u64 = {
                     if let Some(offset) = retry_offset {
@@ -118,14 +129,14 @@ pub async fn download_media_concurrent(
 
     let mut pos = 0;
     while let Some((offset, data)) = rx.recv().await {
-        if should_cancel.load(Ordering::SeqCst) {
-            log::info!("Download canceled!");
+        if cancel_token.is_cancelled() {
             for task in tasks {
                 task.abort();
             }
-            delete_file(path.clone()).await;
-            message.edit("Download Cancelled").await?;
-            return Ok(());
+            return Err(Box::new(io::Error::new(
+                io::ErrorKind::Other,
+                "Download Cancelled",
+            )));
         }
 
         if offset != pos {
@@ -146,7 +157,7 @@ pub async fn download_media_concurrent(
                 format_message(document.name(), downloaded, size as f64, speed_mbps);
 
             if last_progress_text != progress_text {
-                message
+                message_reply
                     .edit(InputMessage::text(progress_text.clone()).reply_markup(
                         &reply_markup::inline(vec![vec![button::inline("Cancel", button_id)]]),
                     ))
@@ -157,9 +168,7 @@ pub async fn download_media_concurrent(
     }
 
     // Final update to indicate completion
-    message
-        .edit(format!("Download Complete! \nStored at: {}", path))
-        .await?;
+    message_reply.delete().await?;
 
     // Check if all tasks finished succesfully
     for task in tasks {
@@ -206,81 +215,3 @@ pub async fn delete_file(path: String) {
         log::info!("File deleted successfully")
     }
 }
-
-// Get chunks of file and save to storage
-// pub async fn download_file(
-//     bot: Client,
-//     message: Message,
-//     path: String,
-//     button_id: &[u8],
-//     document: media::Document,
-//     should_cancel: Arc<AtomicBool>,
-// ) -> ResultGram<()> {
-//     let mut download = bot.iter_download(&Downloadable::Media(Media::Document(document.clone())));
-//     let mut file = fs::File::create(path.clone()).await?;
-//     let total_size = document.size();
-//     let mut downloaded_size: i64 = 0;
-//     let mut last_update_time = Instant::now();
-//     let mut last_downloaded_size = 0;
-//     let mut last_progress_text: String = "".to_string();
-
-//     let progress_text = format_message(document.name(), 0.0, downloaded_size as f64, 0.0);
-
-//     message
-//         .edit(
-//             InputMessage::text(progress_text).reply_markup(&reply_markup::inline(vec![vec![
-//                 button::inline("Cancel", button_id),
-//             ]])),
-//         )
-//         .await?;
-
-//     while let Some(chunk) = download
-//         .next()
-//         .await
-//         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-//     {
-//         if should_cancel.load(Ordering::SeqCst) {
-//             log::info!("Download canceled!");
-//             file.flush().await?;
-//             delete_file(path.clone()).await;
-//             message.edit("Download Cancelled").await?;
-//             return Ok(());
-//         }
-
-//         downloaded_size += chunk.len() as i64;
-
-//         // Send updates in 5 seconds of interval
-//         if last_update_time.elapsed().as_secs() >= 5 {
-//             let bytes_downloaded_since_last_update = downloaded_size - last_downloaded_size;
-//             let speed_mbps = (bytes_downloaded_since_last_update as f64 / (1024.0 * 1024.0))
-//                 / last_update_time.elapsed().as_secs_f64();
-
-//             let progress_text = format_message(
-//                 document.name(),
-//                 downloaded_size as f64,
-//                 total_size as f64,
-//                 speed_mbps,
-//             );
-
-//             if last_progress_text != progress_text {
-//                 message
-//                     .edit(InputMessage::text(progress_text.clone()).reply_markup(
-//                         &reply_markup::inline(vec![vec![button::inline("Cancel", button_id)]]),
-//                     ))
-//                     .await?;
-//                 last_progress_text = progress_text;
-//             }
-//             last_update_time = Instant::now();
-//             last_downloaded_size = downloaded_size;
-//         }
-
-//         file.write_all(&chunk).await?;
-//     }
-
-//     // Final update to indicate completion
-//     message
-//         .edit(format!("Download Complete! \nStored at: {}", path))
-//         .await?;
-
-//     Ok(())
-// }

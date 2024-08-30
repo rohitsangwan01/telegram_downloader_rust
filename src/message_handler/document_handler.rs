@@ -2,14 +2,14 @@ use crate::app_config::AppConfig;
 use crate::utils::custom_result::ResultGram;
 use crate::utils::download_utils::{delete_file, download_media_concurrent};
 use grammers_client::types::{media, Chat, Message};
-use grammers_client::{button, reply_markup, Client, InputMessage};
+use grammers_client::Client;
 use std::collections::HashMap;
 use std::fs::create_dir_all;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use tokio_util::sync::CancellationToken;
 
 lazy_static::lazy_static! {
-    static ref CANCEL_DOWNLOAD: Arc<Mutex<HashMap<u8, Arc<AtomicBool>>>> = Arc::new(Mutex::new(HashMap::new()));
+    static ref CANCEL_DOWNLOAD: Arc<Mutex<HashMap<u8, CancellationToken>>> = Arc::new(Mutex::new(HashMap::new()));
     static ref DOWNLOAD_ID_COUNTER: Arc<Mutex<u8>> = Arc::new(Mutex::new(0));
 }
 
@@ -44,30 +44,22 @@ pub async fn handle_document(
     let button_id: &[u8] = &[download_id];
     log::debug!("Downloading: {:?}", button_id);
 
-    let should_cancel = Arc::new(AtomicBool::new(false));
+    let cancel_token = CancellationToken::new();
     {
         let mut cancel_map = CANCEL_DOWNLOAD.lock().unwrap();
-        cancel_map.insert(download_id, Arc::clone(&should_cancel));
+        cancel_map.insert(download_id, cancel_token.clone());
     }
 
-    let message_reply = message
-        .reply(
-            InputMessage::text("Downloading..").reply_markup(&reply_markup::inline(vec![vec![
-                button::inline("Cancel", button_id),
-            ]])),
-        )
-        .await?;
-
     let mut error: Option<String> = None;
+    let start_time = std::time::Instant::now();
 
     if let Err(e) = download_media_concurrent(
         bot.clone(),
-        &message.media().unwrap(),
         dest.clone(),
         4,
-        message_reply.clone(),
+        message.clone(),
         button_id,
-        should_cancel,
+        cancel_token.clone(),
     )
     .await
     {
@@ -76,8 +68,23 @@ pub async fn handle_document(
     }
 
     if error.is_some() {
-        message_reply.edit(error.unwrap()).await?;
+        message.reply(error.unwrap()).await?;
         delete_file(dest.clone()).await;
+    } else {
+        let download_complete_time = start_time.elapsed().as_secs();
+        let mut download_time: String = format!("{download_complete_time} sec");
+        if download_complete_time > 60 {
+            download_time = format!("{:.1} min", download_complete_time / 60);
+        }
+        if download_complete_time > 3600 {
+            download_time = format!("{:.1} hr", download_complete_time / 3600);
+        }
+        message
+            .reply(format!(
+                "Download Completed in {} \nStored at: {}",
+                download_time, dest
+            ))
+            .await?;
     }
 
     // Remove from map
@@ -97,8 +104,8 @@ pub async fn cancel_download(id: &[u8]) -> String {
     let download_id = id[0];
     log::info!("Cancel Download: {}", download_id);
 
-    if let Some(should_cancel) = CANCEL_DOWNLOAD.lock().unwrap().get(&download_id) {
-        should_cancel.store(true, Ordering::SeqCst);
+    if let Some(cancel_token) = CANCEL_DOWNLOAD.lock().unwrap().get(&download_id) {
+        cancel_token.cancel();
     }
     return "Download will be canceled shortly".to_string();
 }
