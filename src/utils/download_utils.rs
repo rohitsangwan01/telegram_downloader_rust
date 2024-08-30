@@ -133,6 +133,7 @@ pub async fn download_media_concurrent(
             for task in tasks {
                 task.abort();
             }
+            message_reply.delete().await?;
             return Err(Box::new(io::Error::new(
                 io::ErrorKind::Other,
                 "Download Cancelled",

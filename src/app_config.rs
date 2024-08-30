@@ -1,15 +1,14 @@
+use crate::utils::custom_result::ResultGram;
 use log::error;
 use std::fmt::Display;
 use std::str::FromStr;
-
-use crate::utils::custom_result::ResultGram;
 
 #[derive(Clone)]
 pub struct AppConfig {
     pub api_id: i32,
     pub api_hash: String,
     pub bot_token: String,
-    pub download_directory: String,
+    pub download_directory: Vec<String>,
     pub user_id: i64,
 }
 
@@ -20,8 +19,11 @@ impl AppConfig {
             api_hash: parse_env("TELEGRAM_API_HASH").ok_or("TELEGRAM_API_HASH not found")?,
             bot_token: parse_env("BOT_TOKEN").ok_or("BOT_TOKEN not found")?,
             user_id: parse_env("USER_ID").ok_or("USER_ID not found")?,
-            download_directory: parse_env("DOWNLOAD_DIRECTORY")
-                .ok_or("DOWNLOAD_DIRECTORY not found")?,
+            download_directory: parse_env::<String>("DOWNLOAD_DIRECTORY")
+                .ok_or("DOWNLOAD_DIRECTORY not found")?
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect(),
         })
     }
 }

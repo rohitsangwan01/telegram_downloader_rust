@@ -1,8 +1,7 @@
 use crate::message_handler::command_handler::handle_command;
 use crate::message_handler::document_handler::{cancel_download, handle_document};
 use crate::utils::custom_result::ResultUpdate;
-use grammers_client::types::Media::Document;
-use grammers_client::types::{media, Message};
+use crate::utils::helper::get_document;
 use grammers_client::{Client, Update};
 
 pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
@@ -24,10 +23,9 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     };
     let chat = message.chat();
 
-    let document = get_document(message.clone());
     // Handle Document if available
-    if document.is_some() {
-        handle_document(bot, chat, message, document.unwrap()).await?;
+    if get_document(message.clone()).is_some() {
+        handle_document(bot, message).await?;
         return Ok(());
     }
 
@@ -42,15 +40,4 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     bot.send_message(&chat, "Please Send a Message Media /help")
         .await?;
     Ok(())
-}
-
-/// Get only Document from the Message
-fn get_document(message: Message) -> Option<media::Document> {
-    match message.media() {
-        Some(media) => match media {
-            Document(document) => return Some(document),
-            _ => return None,
-        },
-        None => return None,
-    };
 }
