@@ -11,38 +11,38 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - os_name: Linux-x86_64
-            os: ubuntu-20.04
-            target: x86_64-unknown-linux-musl
-            bin: Telegram-Bot
-            name: Telegram-Bot-Linux-x86_64-musl.tar.gz
-          - os_name: Linux-aarch64
-            os: ubuntu-20.04
-            target: aarch64-unknown-linux-musl
-            bin: Telegram-Bot
-            name: Telegram-Bot-Linux-aarch64-musl.tar.gz
-          - os_name: Linux-arm
-            os: ubuntu-20.04
-            target: arm-unknown-linux-musleabi
-            bin: Telegram-Bot
-            name: Telegram-Bot-Linux-arm-musl.tar.gz
+          # - os_name: Linux-x86_64
+          #   os: ubuntu-20.04
+          #   target: x86_64-unknown-linux-musl
+          #   bin: Telegram-Bot
+          #   name: Telegram-Bot-Linux-x86_64-musl.tar.gz
+          # - os_name: Linux-aarch64
+          #   os: ubuntu-20.04
+          #   target: aarch64-unknown-linux-musl
+          #   bin: Telegram-Bot
+          #   name: Telegram-Bot-Linux-aarch64-musl.tar.gz
+          # - os_name: Linux-arm
+          #   os: ubuntu-20.04
+          #   target: arm-unknown-linux-musleabi
+          #   bin: Telegram-Bot
+          #   name: Telegram-Bot-Linux-arm-musl.tar.gz
 
-          - os_name: Windows-aarch64
-            os: windows-latest
-            target: aarch64-pc-windows-msvc
-            bin: Telegram-Bot.exe
-            name: Telegram-Bot-Windows-aarch64.zip
-          - os_name: Windows-x86_64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bin: Telegram-Bot.exe
-            name: Telegram-Bot-Windows-x86_64.zip
+          # - os_name: Windows-aarch64
+          #   os: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          #   bin: Telegram-Bot.exe
+          #   name: Telegram-Bot-Windows-aarch64.zip
+          # - os_name: Windows-x86_64
+          #   os: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   bin: Telegram-Bot.exe
+          #   name: Telegram-Bot-Windows-x86_64.zip
 
-          - os_name: macOS-x86_64
-            os: macOS-latest
-            target: x86_64-apple-darwin
-            bin: Telegram-Bot
-            name: Telegram-Bot-Darwin-x86_64.tar.gz
+          # - os_name: macOS-x86_64
+          #   os: macOS-latest
+          #   target: x86_64-apple-darwin
+          #   bin: Telegram-Bot
+          #   name: Telegram-Bot-Darwin-x86_64.tar.gz
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
@@ -57,6 +57,20 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
           strip: true
+      - name: List target dir
+        shell: bash
+        run: |
+          ls -la ./target/release
+          echo ---
+          ls -la ./
+          echo ---
+          ls -la ../
+          echo ---
+          ls -la ../../
+          echo ---
+          ls -la ../../../
+          echo ---
+          ls -la ../../../../
       - name: Package as archive
         shell: bash
         run: |
