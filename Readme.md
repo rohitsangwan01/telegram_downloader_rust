@@ -1,31 +1,42 @@
-# Telegram Media Downloader
+# Telegram Downloader Rust
 
-A telegram bot to download forwared media files
+Effortlessly download Telegram media with this simple Rust-powered bot.
 
-## Get Started
+## Configuration:
 
-Make sure rust is installed in your system
+- Copy the `.env.example` file to `.env`.
+- Open the `.env` file and fill in the required variables
 
-configure `.env` file, checkout `.env.example` for variables
+## Download a Release:
 
-Run bot with command: `cargo run`
+- Go to the [Releases page](https://github.com/rohitsangwan01/telegram_downloader_rust/releases) and download the appropriate archive for your operating system.
+- Extract the archive contents to a directory of your choice.
 
-## To run on your server
+## Build from Source (requires Rust):
 
-Build with
+- Make sure you have Rust installed on your system.
+- Clone this repository: `git clone https://github.com/rohitsangwan01/telegram_downloader_rust.git`
+- Navigate to the project directory: `cd telegram_downloader_rust`
+- Build the bot: `cargo build --release`
+
+## Running the Bot:
+
+- **From a Release:**
+  - Open a terminal and navigate to the directory where you extracted the release files. place `.env` file in the same directory.
+  - Run the bot: `./telegram_bot` (or the appropriate executable name for your OS)
+- **From Source:**
+  - Run the bot: `cargo run`
+
+## Using the Bot
+
+1. **Start a chat with your bot in Telegram.**
+2. **Forward any media file (photos, videos, documents) to the bot.**
+3. **The bot will download the media to your configured `DOWNLOAD_DIRECTORY`.**
+
+## Permissions
+
+If you encounter issues downloading to the specified directory, make sure you have the necessary permissions:
 
 ```sh
-cargo build --release
-```
-
-If using pm2, run with
-
-```sh
-pm2 start ./target/release/telegram_bot --name telegram_bot
-```
-
-If not able to download in given directory, Make sure you have proper permission,
-
-```sh
-sudo chown -R $USER DIRECTORY_PATH
+sudo chown -R $USER <DOWNLOAD_DIRECTORY>
 ```
