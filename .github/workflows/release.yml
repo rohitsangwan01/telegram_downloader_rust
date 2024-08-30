@@ -3,6 +3,9 @@ name: Release Builds
 on:
   workflow_dispatch:
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   release:
     name: ${{ matrix.platform.os_name }}
@@ -11,38 +14,38 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # - os_name: Linux-x86_64
-          #   os: ubuntu-20.04
-          #   target: x86_64-unknown-linux-musl
-          #   bin: telegram_bot
-          #   name: telegram_bot-Linux-x86_64-musl.tar.gz
-          # - os_name: Linux-aarch64
-          #   os: ubuntu-20.04
-          #   target: aarch64-unknown-linux-musl
-          #   bin: telegram_bot
-          #   name: telegram_bot-Linux-aarch64-musl.tar.gz
-          # - os_name: Linux-arm
-          #   os: ubuntu-20.04
-          #   target: arm-unknown-linux-musleabi
-          #   bin: telegram_bot
-          #   name: telegram_bot-Linux-arm-musl.tar.gz
+          - os_name: Linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-musl
+            bin: telegram_bot
+            name: telegram_bot-Linux-x86_64-musl.tar.gz
+          - os_name: Linux-aarch64
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-musl
+            bin: telegram_bot
+            name: telegram_bot-Linux-aarch64-musl.tar.gz
+          - os_name: Linux-arm
+            os: ubuntu-20.04
+            target: arm-unknown-linux-musleabi
+            bin: telegram_bot
+            name: telegram_bot-Linux-arm-musl.tar.gz
 
-          # - os_name: Windows-aarch64
-          #   os: windows-latest
-          #   target: aarch64-pc-windows-msvc
-          #   bin: telegram_bot.exe
-          #   name: telegram_bot-Windows-aarch64.zip
-          # - os_name: Windows-x86_64
-          #   os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   bin: telegram_bot.exe
-          #   name: telegram_bot-Windows-x86_64.zip
+          - os_name: Windows-aarch64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            bin: telegram_bot.exe
+            name: telegram_bot-Windows-aarch64.zip
+          - os_name: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: telegram_bot.exe
+            name: telegram_bot-Windows-x86_64.zip
 
-          # - os_name: macOS-x86_64
-          #   os: macOS-latest
-          #   target: x86_64-apple-darwin
-          #   bin: telegram_bot
-          #   name: telegram_bot-Darwin-x86_64.tar.gz
+          - os_name: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: telegram_bot
+            name: telegram_bot-Darwin-x86_64.tar.gz
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
