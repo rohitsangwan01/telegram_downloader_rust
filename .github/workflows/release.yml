@@ -18,39 +18,32 @@ jobs:
             os: ubuntu-20.04
             target: x86_64-unknown-linux-musl
             bin: telegram_bot
-            name: telegram_bot-Linux-x86_64-musl.tar.gz
+            name: telegram_bot-linux-x86_64-musl.tar.gz
           - os_name: Linux-aarch64
             os: ubuntu-20.04
             target: aarch64-unknown-linux-musl
             bin: telegram_bot
-            name: telegram_bot-Linux-aarch64-musl.tar.gz
-          - os_name: Linux-arm
-            os: ubuntu-20.04
-            target: arm-unknown-linux-musleabi
-            bin: telegram_bot
-            name: telegram_bot-Linux-arm-musl.tar.gz
-
+            name: telegram_bot-linux-aarch64-musl.tar.gz
           - os_name: Windows-aarch64
             os: windows-latest
             target: aarch64-pc-windows-msvc
             bin: telegram_bot.exe
-            name: telegram_bot-Windows-aarch64.zip
+            name: telegram_bot-windows-aarch64.zip
           - os_name: Windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bin: telegram_bot.exe
-            name: telegram_bot-Windows-x86_64.zip
-
+            name: telegram_bot-windows-x86_64.zip
           - os_name: macOS-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
             bin: telegram_bot
-            name: telegram_bot-Darwin-x86_64.tar.gz
+            name: telegram_bot-macos-x86_64.tar.gz
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
             bin: telegram_bot
-            name: telegram_bot-Darwin-aarch64.tar.gz
+            name: telegram_bot-macos-arm.tar.gz
     steps:
       - uses: actions/checkout@v4
       - name: Build binary
@@ -60,21 +53,16 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
           strip: true
-      - name: List target dir
-        shell: bash
-        run: |
-          ls -la ./target/release
-          echo ---
-          ls -la ./target
-          echo ---
       - name: Package as archive
         shell: bash
         run: |
           cd target/${{ matrix.platform.target }}/release
+          cp ../../../.env.example .env
+
           if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-            7z a ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+            7z a ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }} .env
           else
-            tar czvf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+            tar czvf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }} .env
           fi
           cd -
       - name: Publish release artifacts
