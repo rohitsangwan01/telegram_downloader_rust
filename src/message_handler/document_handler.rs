@@ -13,6 +13,7 @@ lazy_static::lazy_static! {
     static ref CANCEL_DOWNLOAD: Arc<Mutex<HashMap<u8, CancellationToken>>> = Arc::new(Mutex::new(HashMap::new()));
     static ref DOWNLOAD_ID_COUNTER: Arc<Mutex<u8>> = Arc::new(Mutex::new(0));
 }
+pub const DOWNLOAD_ID_QUERY: u8 = 192;
 
 /// Handle Download Requests from bot
 pub async fn handle_document(bot: Client, message: Message) -> ResultGram<()> {
@@ -57,7 +58,7 @@ pub async fn handle_document(bot: Client, message: Message) -> ResultGram<()> {
         *counter
     };
 
-    let button_id: &[u8] = &[download_id];
+    let button_id: &[u8] = &[DOWNLOAD_ID_QUERY, download_id];
     log::debug!("Downloading: {:?}", button_id);
 
     let cancel_token = CancellationToken::new();
@@ -114,10 +115,10 @@ pub async fn handle_document(bot: Client, message: Message) -> ResultGram<()> {
 
 /// Handle Cancel Requests
 pub async fn cancel_download(id: &[u8]) -> String {
-    if id.len() == 0 {
+    if id.len() < 2 {
         return "Invalid Message Id".to_string();
     }
-    let download_id = id[0];
+    let download_id = id[1];
     log::info!("Cancel Download: {}", download_id);
 
     if let Some(cancel_token) = CANCEL_DOWNLOAD.lock().unwrap().get(&download_id) {

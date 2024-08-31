@@ -1,7 +1,8 @@
+use std::process::Command;
+
 use grammers_client::types::{Chat, Message};
 use grammers_client::Client;
 use local_ip_address::local_ip;
-use system_shutdown::reboot;
 
 use crate::utils::custom_result::ResultGram;
 
@@ -46,10 +47,14 @@ fn handle_system_info() -> String {
 }
 
 fn handle_reboot() -> String {
-    return match reboot() {
-        Ok(_) => return "Restarting".to_string(),
-        Err(error) => format!("Failed to shut down: {}", error),
-    };
+    if cfg!(target_os = "linux") {
+        let output = Command::new("sudo")
+            .arg("reboot")
+            .output()
+            .expect("failed to execute process");
+        return String::from_utf8_lossy(&output.stdout).to_string();
+    }
+    return "Not supported yet".to_string();
 }
 
 fn handle_help(chat: Chat) -> String {

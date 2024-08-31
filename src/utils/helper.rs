@@ -1,9 +1,22 @@
+use grammers_client::session::PackedType;
 use grammers_client::types::Media::Document;
-use grammers_client::types::{media, CallbackQuery, Message};
+use grammers_client::types::{media, CallbackQuery, Message, PackedChat};
 use grammers_client::{button, reply_markup, Client, InputMessage, Update};
 use tokio::time::{timeout, Duration};
 
 use super::custom_result::ResultGram;
+
+pub async fn send_message_to_user(bot: Client, user_id: i64, message: &str) -> ResultGram<()> {
+    let chat = bot
+        .unpack_chat(PackedChat {
+            ty: PackedType::User,
+            id: user_id,
+            access_hash: Some(0),
+        })
+        .await?;
+    bot.send_message(&chat, message).await?;
+    Ok(())
+}
 
 /// Get only Document from the Message
 pub fn get_document(message: Message) -> Option<media::Document> {

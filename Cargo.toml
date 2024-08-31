@@ -9,18 +9,12 @@ repository = "https://github.com/rust-lang/cargo"
 
 [dependencies]
 grammers-client = { git = "https://github.com/Lonami/grammers" }
-futures-util = { version = "0.3.15", default-features = false, features = [
-    "alloc"
-] }
-tokio = { version = "1.40.0", features = ["full"] }
-simple_logger = { version = "5.0.0", default-features = false, features = [
-    "colors",
-] }
-toml = "0.8.8"
+futures-util = { version = "0.3.15", default-features = false, features = [ "alloc"] }
+tokio = { version = "1.34.0", features = ["full"] }
+tokio-util = { version = "0.7.11", default-features = false, features = ["rt"] }
+simple_logger = { version = "5.0.0", default-features = false, features = ["colors"] }
 log = "0.4.22"
 dotenv = "0.15.0"
 local-ip-address = "0.6.2"
 fs2 = "0.4.3"
 lazy_static = "1.5.0"
-system_shutdown = "4.0.1"
-tokio-util = "0.7.11"

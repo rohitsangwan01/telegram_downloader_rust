@@ -5,14 +5,11 @@ mod utils;
 
 use app_config::AppConfig;
 use get_bot::get_bot;
+use grammers_client::Client;
 use message_handler::default_handler::handle_update;
-use std::pin::pin;
-use utils::custom_result::ResultGram;
-
-use futures_util::future::{select, Either};
-use grammers_client::{session::PackedType, types::PackedChat, Client};
 use simple_logger::SimpleLogger;
-use tokio::{runtime, task};
+use tokio::runtime;
+use utils::{custom_result::ResultGram, helper::send_message_to_user};
 
 fn main() -> ResultGram<()> {
     SimpleLogger::new()
@@ -24,43 +21,40 @@ fn main() -> ResultGram<()> {
         .enable_all()
         .build()
         .unwrap()
-        .block_on(async_main())
+        .block_on(run_bot())
 }
 
-async fn async_main() -> ResultGram<()> {
+async fn run_bot() -> ResultGram<()> {
     dotenv::dotenv().expect("please add .env file");
     let config = AppConfig::from_env().unwrap();
 
-    // Get Client
     log::info!("Connecting to Telegram");
     let bot: Client = get_bot(config.clone()).await?;
-    let user_id = config.user_id;
-    log::info!("Send message to: {}", user_id);
 
-    let packed_chat = PackedChat {
-        ty: PackedType::User,
-        id: user_id,
-        access_hash: Some(0),
-    };
-    let chat = bot.unpack_chat(packed_chat).await?;
-    bot.send_message(&chat, "Bot Started").await?;
+    send_message_to_user(bot.clone(), config.user_id, "Bot Started /help").await?;
 
     loop {
-        let exit = pin!(async { tokio::signal::ctrl_c().await });
-        let upd = pin!(async { bot.next_update().await });
-
-        let update = match select(exit, upd).await {
-            Either::Left(_) => break,
-            Either::Right((u, _)) => u?,
-        };
-
-        let bot_handler = bot.clone();
-        task::spawn(async move {
-            match handle_update(bot_handler, update).await {
-                Ok(_) => {}
-                Err(e) => log::error!("Error handling updates!: {e}"),
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                log::info!("Shutting down...");
+                break;
             }
-        });
+            result = bot.next_update() => {
+                let update = match result {
+                    Ok(update) => update,
+                    Err(e) => {
+                        log::error!("Error getting update: {}", e);
+                        break;
+                    }
+                };
+                let bot_handler = bot.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = handle_update(bot_handler, update).await {
+                        log::error!("Error handling update: {}", e);
+                    }
+                });
+            }
+        };
     }
     Ok(())
 }
