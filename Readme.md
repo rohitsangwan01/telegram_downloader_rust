@@ -1,5 +1,9 @@
 # Telegram Downloader Rust
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f1d2a00a-9da3-4311-99ff-c4467dddfd66" height=190 />
+</p>
+
 Effortlessly download Telegram media with this simple Rust-powered bot.
 
 ## Configuration:
