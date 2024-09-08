@@ -4,6 +4,8 @@ use grammers_client::types::{media, CallbackQuery, Message, PackedChat};
 use grammers_client::{button, reply_markup, Client, InputMessage, Update};
 use tokio::time::{timeout, Duration};
 
+use crate::app_config::AppConfig;
+
 use super::custom_result::ResultGram;
 
 pub async fn send_message_to_user(bot: Client, user_id: i64, message: &str) -> ResultGram<()> {
@@ -16,6 +18,45 @@ pub async fn send_message_to_user(bot: Client, user_id: i64, message: &str) -> R
         .await?;
     bot.send_message(&chat, message).await?;
     Ok(())
+}
+
+/// Get Directory from user if there are more then one director in env
+pub async fn get_directory(bot: Client, message: Message) -> ResultGram<Option<String>> {
+    let config = AppConfig::from_env().unwrap();
+    let download_directories: Vec<String> = config.download_directory;
+
+    if download_directories.len() == 1 {
+        let dest: String = download_directories[0].clone();
+        log::debug!("Download to : {}", dest);
+        return Ok(Some(dest));
+    }
+
+    let choosed_option = ask_query(
+        bot.clone(),
+        message,
+        "Choose a download directory:",
+        download_directories.clone(),
+    )
+    .await?;
+
+    if choosed_option.is_none() {
+        return Ok(None);
+    }
+
+    let chosen_dir_index = choosed_option.unwrap();
+    let chosen_dir = download_directories[chosen_dir_index as usize].clone();
+    return Ok(Some(chosen_dir));
+}
+
+pub async fn get_custom_file_name(bot: Client, message: Message) -> ResultGram<Option<String>> {
+    let file_name_message = message.reply("Send File Name").await?;
+    let response: Message = match get_next_message(bot.clone(), message.chat().id(), 60).await {
+        Some(mesage) => mesage,
+        None => return Ok(None),
+    };
+    response.delete().await?;
+    file_name_message.delete().await?;
+    return Ok(Some(response.text().to_string()));
 }
 
 /// Get only Document from the Message

@@ -5,15 +5,24 @@ use grammers_client::Client;
 use local_ip_address::local_ip;
 
 use crate::utils::custom_result::ResultGram;
+use crate::utils::helper::{get_custom_file_name, get_directory};
 
 const START_COMMAND: &str = "/start";
 const IP_COMMAND: &str = "/ip";
 const INFO_COMMAND: &str = "/info";
 const REBOOT_COMMAND: &str = "/reboot";
 const HELP_COMMAND: &str = "/help";
+const GDOWN_COMMAND: &str = "/gdown";
 
-pub async fn handle_command(_: Client, chat: Chat, message: Message) -> ResultGram<()> {
+pub async fn handle_command(bot: Client, chat: Chat, message: Message) -> ResultGram<()> {
     let command: &str = message.text();
+
+    if command.contains(GDOWN_COMMAND) {
+        download_gdrive(bot.clone(), message.clone()).await?;
+        return Ok(());
+    }
+
+    // Handle Text based commands
     let response: String = match command {
         START_COMMAND => handle_start(chat.clone()),
         IP_COMMAND => handle_ip(),
@@ -23,6 +32,21 @@ pub async fn handle_command(_: Client, chat: Chat, message: Message) -> ResultGr
     };
     message.reply(response).await?;
     return Ok(());
+}
+
+fn handle_help(chat: Chat) -> String {
+    let name: &str = chat.name();
+    return format!(
+        "Hey {name}, Use these Commadns:.\n\
+        {START_COMMAND} : To start the bot\n\
+        {IP_COMMAND} : Get your IP\n\
+        {REBOOT_COMMAND} : To reboot the machine\n\
+        {INFO_COMMAND}: To get system information\n\
+        {HELP_COMMAND}: To get help\n\
+        {GDOWN_COMMAND}: To download gdrive files\n\
+        \nor send files to download"
+    )
+    .to_string();
 }
 
 fn handle_start(chat: Chat) -> String {
@@ -57,16 +81,45 @@ fn handle_reboot() -> String {
     return "Not supported yet".to_string();
 }
 
-fn handle_help(chat: Chat) -> String {
-    let name: &str = chat.name();
-    return format!(
-        "Hey {name}, Use these Commadns:.\n\
-        {START_COMMAND} : To start the bot\n\
-        {IP_COMMAND} : Get your IP\n\
-        {REBOOT_COMMAND} : To reboot the machine\n\
-        {INFO_COMMAND}: To get system information\n\
-        {HELP_COMMAND}: To get help\n\
-        \nor send files to download"
-    )
-    .to_string();
+/// If gdown installed in system
+pub async fn download_gdrive(bot: Client, message: Message) -> ResultGram<()> {
+    let gdrive_id = message.text().replace(GDOWN_COMMAND, "").trim().to_string();
+
+    log::info!("Grdive Download: {gdrive_id}");
+
+    if gdrive_id.is_empty() {
+        message
+            .reply("Please send a valid gdrive link or id")
+            .await?;
+        return Ok(());
+    }
+
+    let directory_result: Option<String> = get_directory(bot.clone(), message.clone()).await?;
+    if directory_result.is_none() {
+        return Ok(());
+    }
+
+    let media_name = match get_custom_file_name(bot.clone(), message.clone()).await? {
+        Some(name) => name,
+        None => return Ok(()),
+    };
+    let path = format!("{}/{media_name}", directory_result.unwrap());
+
+    let reply_message = message.reply("Starting GoogleDrive download").await?;
+
+    let mut child = Command::new("gdown")
+        .arg(gdrive_id)
+        .arg("-O")
+        .arg(path)
+        .spawn()?;
+
+    let res = child.wait()?;
+    reply_message.delete().await?;
+    if !res.success() {
+        message.reply("Process Failed").await?;
+    } else {
+        message.reply("Process completed").await?;
+    }
+
+    return Ok(());
 }

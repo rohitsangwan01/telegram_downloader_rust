@@ -1,9 +1,10 @@
-use crate::message_handler::command_handler::handle_command;
 use crate::message_handler::document_handler::handle_document;
 use crate::message_handler::query_handler::handle_query;
+use crate::message_handler::{command_handler::handle_command, url_handler::handle_url};
 use crate::utils::custom_result::ResultUpdate;
 use crate::utils::helper::get_document;
 use grammers_client::{Client, Update};
+use url::Url;
 
 pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     // Handle only messages sent by users
@@ -31,6 +32,12 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     // Check if a message start with /, to handle as command
     if message.text().starts_with("/") {
         handle_command(bot, chat, message).await?;
+        return Ok(());
+    }
+
+    // Check if text is a url
+    if Url::parse(message.text()).is_ok() {
+        handle_url(bot, message).await?;
         return Ok(());
     }
 

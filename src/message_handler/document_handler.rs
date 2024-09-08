@@ -1,7 +1,6 @@
-use crate::app_config::AppConfig;
 use crate::utils::custom_result::ResultGram;
 use crate::utils::download_utils::{delete_file, download_media_concurrent};
-use crate::utils::helper::{ask_query, get_document, get_next_message};
+use crate::utils::helper::{ask_query, get_custom_file_name, get_directory, get_document};
 use grammers_client::types::{media, Message};
 use grammers_client::Client;
 use std::collections::HashMap;
@@ -127,17 +126,6 @@ pub async fn cancel_download(id: &[u8]) -> String {
     return "Download will be canceled shortly".to_string();
 }
 
-pub async fn get_custom_file_name(bot: Client, message: Message) -> ResultGram<Option<String>> {
-    let file_name_message = message.reply("Send File Name").await?;
-    let response: Message = match get_next_message(bot.clone(), message.chat().id(), 60).await {
-        Some(mesage) => mesage,
-        None => return Ok(None),
-    };
-    response.delete().await?;
-    file_name_message.delete().await?;
-    return Ok(Some(response.text().to_string()));
-}
-
 pub async fn should_download_with_default_filename(
     bot: Client,
     message: Message,
@@ -156,32 +144,4 @@ pub async fn should_download_with_default_filename(
         None => return Ok(false),
     };
     return Ok(choosed_option == 0);
-}
-
-/// Get Directory from user if there are more then one director in env
-pub async fn get_directory(bot: Client, message: Message) -> ResultGram<Option<String>> {
-    let config = AppConfig::from_env().unwrap();
-    let download_directories: Vec<String> = config.download_directory;
-
-    if download_directories.len() == 1 {
-        let dest: String = download_directories[0].clone();
-        log::debug!("Download to : {}", dest);
-        return Ok(Some(dest));
-    }
-
-    let choosed_option = ask_query(
-        bot.clone(),
-        message,
-        "Choose a download directory:",
-        download_directories.clone(),
-    )
-    .await?;
-
-    if choosed_option.is_none() {
-        return Ok(None);
-    }
-
-    let chosen_dir_index = choosed_option.unwrap();
-    let chosen_dir = download_directories[chosen_dir_index as usize].clone();
-    return Ok(Some(chosen_dir));
 }
