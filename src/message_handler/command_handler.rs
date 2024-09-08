@@ -107,18 +107,25 @@ pub async fn download_gdrive(bot: Client, message: Message) -> ResultGram<()> {
 
     let reply_message = message.reply("Starting GoogleDrive download").await?;
 
-    let mut child = Command::new("gdown")
+    // Run a command and capture the output
+    let output = Command::new("gdown")
         .arg(gdrive_id)
         .arg("-O")
         .arg(path)
-        .spawn()?;
+        .output()
+        .expect("Failed to execute command");
 
-    let res = child.wait()?;
+    // Convert the output to a String
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     reply_message.delete().await?;
-    if !res.success() {
-        message.reply("Process Failed").await?;
+
+    // Print the command's output
+    if !stderr.is_empty() && !stderr.contains("█") {
+        eprintln!("Error: {}", stderr);
+        message.reply(format!("Process Failed: {}", stderr)).await?;
     } else {
-        message.reply("Process completed").await?;
+        message.reply(format!("Process Completed")).await?;
     }
 
     return Ok(());
