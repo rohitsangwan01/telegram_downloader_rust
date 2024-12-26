@@ -13,12 +13,16 @@ const INFO_COMMAND: &str = "/info";
 const REBOOT_COMMAND: &str = "/reboot";
 const HELP_COMMAND: &str = "/help";
 const GDOWN_COMMAND: &str = "/gdown";
+const SPEED_TEST_COMMAND: &str = "/speed";
 
 pub async fn handle_command(bot: Client, chat: Chat, message: Message) -> ResultGram<()> {
     let command: &str = message.text();
 
     if command.contains(GDOWN_COMMAND) {
         download_gdrive(bot.clone(), message.clone()).await?;
+        return Ok(());
+    } else if command.contains(SPEED_TEST_COMMAND) {
+        handle_speedtest(message.clone()).await?;
         return Ok(());
     }
 
@@ -40,10 +44,11 @@ fn handle_help(chat: Chat) -> String {
         "Hey {name}, Use these Commadns:.\n\
         {START_COMMAND} : To start the bot\n\
         {IP_COMMAND} : Get your IP\n\
-        {REBOOT_COMMAND} : To reboot the machine\n\
+        {SPEED_TEST_COMMAND}: Get network speed\n\
         {INFO_COMMAND}: To get system information\n\
         {HELP_COMMAND}: To get help\n\
         {GDOWN_COMMAND}: To download gdrive files\n\
+        {REBOOT_COMMAND}: To reboot the machine\n\
         \nor send files to download"
     )
     .to_string();
@@ -79,6 +84,34 @@ fn handle_reboot() -> String {
         return String::from_utf8_lossy(&output.stdout).to_string();
     }
     return "Not supported yet".to_string();
+}
+
+pub async fn handle_speedtest(message: Message) -> ResultGram<()> {
+    let reply_message = message.reply("Starting Speedtest, please wait...").await?;
+
+    // Run a command and capture the output
+    let output = match Command::new("speedtest").output() {
+        Ok(o) => o,
+        Err(err) => {
+            message.reply(format!("Error {err:?}")).await?;
+            return Ok(());
+        }
+    };
+
+    // Convert the output to a String
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    reply_message.delete().await?;
+    let mut reply_message_text: String = "Speedtest Result: \n".to_string();
+    if !stderr.is_empty() {
+        reply_message_text = format!("{reply_message_text} {stderr}");
+    } else {
+        reply_message_text = format!("{reply_message_text} {stdout}");
+    }
+
+    message.reply(reply_message_text).await?;
+    return Ok(());
 }
 
 /// If gdown installed in system

@@ -38,6 +38,13 @@ Effortlessly download Telegram media with this simple Rust-powered bot.
   pm2 start ./target/release/telegram_bot --name telegram_bot
   ```
 
+## To support commands
+
+These commands requires some extra setup, ignore if not needed
+
+`/speed`: install [speedtest](https://www.speedtest.net/apps/cli) cli
+`/gdown`: install [gdown][https://pypi.org/project/gdown/] cli
+
 ## Using the Bot
 
 1. Start a chat with your bot in Telegram.
