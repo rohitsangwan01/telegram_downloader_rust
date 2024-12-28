@@ -3,7 +3,8 @@ use crate::utils::helper::{get_custom_file_name, get_directory};
 use grammers_client::types::{Chat, Message};
 use grammers_client::Client;
 use local_ip_address::local_ip;
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
 
 const START_COMMAND: &str = "/start";
 const IP_COMMAND: &str = "/ip";
@@ -87,28 +88,32 @@ fn handle_reboot() -> String {
 pub async fn handle_speedtest(message: Message) -> ResultGram<()> {
     let reply_message = message.reply("Starting Speedtest, please wait...").await?;
 
-    // Run a command and capture the output
-    let output = match Command::new("speedtest").output() {
-        Ok(o) => o,
-        Err(err) => {
-            message.reply(format!("Error {err:?}")).await?;
-            return Ok(());
+    let mut command = Command::new("speedtest")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let mut response = "".to_string();
+    let mut last_message = "".to_string();
+    if let Some(stdout) = command.stdout.take() {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                response = format!("{}\n{line}", response.clone()).trim().to_string();
+                if response.trim().is_empty() {
+                    continue;
+                }
+                if response != last_message {
+                    println!("{}", response.clone());
+                    reply_message.edit(response.clone()).await?;
+                    last_message = response.clone();
+                }
+            }
         }
-    };
-
-    // Convert the output to a String
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    reply_message.delete().await?;
-    let mut reply_message_text: String = "Speedtest Result: \n".to_string();
-    if !stderr.is_empty() {
-        reply_message_text = format!("{reply_message_text} {stderr}");
-    } else {
-        reply_message_text = format!("{reply_message_text} {stdout}");
     }
 
-    message.reply(reply_message_text).await?;
+    let _ = command.wait()?;
+    reply_message.edit(format_internet_speed(&response)).await?;
     return Ok(());
 }
 
@@ -160,4 +165,47 @@ pub async fn download_gdrive(bot: Client, message: Message) -> ResultGram<()> {
     }
 
     return Ok(());
+}
+
+fn format_internet_speed(input: &str) -> String {
+    let mut lines = input
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty()) // Remove empty lines
+        .collect::<Vec<_>>();
+
+    // Remove unnecessary lines
+    if let Some(pos) = lines
+        .iter()
+        .position(|&line| line.starts_with("Speedtest by Ookla"))
+    {
+        lines.remove(pos);
+    }
+    if let Some(pos) = lines.iter().position(|&line| line.starts_with("Server:")) {
+        lines.remove(pos);
+    }
+    if let Some(pos) = lines.iter().position(|&line| line.starts_with("ISP:")) {
+        lines.remove(pos);
+    }
+
+    // Reorder lines for clarity
+    let mut result = Vec::new();
+    let identifiers = [
+        "Idle Latency:",
+        "Download:",
+        "Upload:",
+        "Packet Loss:",
+        "Result URL:",
+    ];
+    for line in lines {
+        for identifier in &identifiers {
+            if line.starts_with(identifier) {
+                let value = line.replace(identifier, "").trim().to_string();
+                result.push(format!("{identifier} {value}"));
+                break;
+            }
+        }
+    }
+
+    result.join("\n")
 }
