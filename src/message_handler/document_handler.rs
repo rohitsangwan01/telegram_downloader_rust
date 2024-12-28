@@ -1,20 +1,13 @@
 use crate::utils::custom_result::ResultGram;
 use crate::utils::download_utils::{
-    delete_file, download_media_concurrent, should_download_with_default_filename,
+    delete_file, download_media_concurrent, should_download_with_default_filename, CANCEL_DOWNLOAD,
+    DOWNLOAD_ID_COUNTER, DOWNLOAD_ID_QUERY,
 };
 use crate::utils::helper::{get_custom_file_name, get_directory, get_document};
 use grammers_client::types::Message;
 use grammers_client::Client;
-use std::collections::HashMap;
 use std::fs::create_dir_all;
-use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
-
-lazy_static::lazy_static! {
-    static ref CANCEL_DOWNLOAD: Arc<Mutex<HashMap<u8, CancellationToken>>> = Arc::new(Mutex::new(HashMap::new()));
-    static ref DOWNLOAD_ID_COUNTER: Arc<Mutex<u8>> = Arc::new(Mutex::new(0));
-}
-pub const DOWNLOAD_ID_QUERY: u8 = 192;
 
 /// Handle Download Requests from bot
 pub async fn handle_document(bot: Client, message: Message) -> ResultGram<()> {
@@ -115,18 +108,4 @@ pub async fn handle_document(bot: Client, message: Message) -> ResultGram<()> {
     }
 
     Ok(())
-}
-
-/// Handle Cancel Requests
-pub async fn cancel_download(id: &[u8]) -> String {
-    if id.len() < 2 {
-        return "Invalid Message Id".to_string();
-    }
-    let download_id = id[1];
-    log::info!("Cancel Download: {}", download_id);
-
-    if let Some(cancel_token) = CANCEL_DOWNLOAD.lock().unwrap().get(&download_id) {
-        cancel_token.cancel();
-    }
-    return "Download will be canceled shortly".to_string();
 }

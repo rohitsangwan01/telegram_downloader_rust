@@ -1,12 +1,16 @@
 use crate::utils::custom_result::ResultGram;
-use crate::utils::download_utils::{format_message, should_download_with_default_filename};
+use crate::utils::download_utils::{
+    delete_file, format_message, should_download_with_default_filename, CANCEL_DOWNLOAD,
+    DOWNLOAD_ID_COUNTER, DOWNLOAD_ID_QUERY,
+};
 use crate::utils::helper::{get_custom_file_name, get_directory};
 use grammers_client::types::Message;
-use grammers_client::Client;
+use grammers_client::{button, reply_markup, Client, InputMessage};
 use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::Write;
 use std::time::Instant;
+use tokio_util::sync::CancellationToken;
 use url::Url;
 
 pub async fn handle_url(bot: Client, message: Message) -> ResultGram<()> {
@@ -59,7 +63,30 @@ pub async fn handle_url(bot: Client, message: Message) -> ResultGram<()> {
         return Err(e.into());
     }
 
-    let reply_message = message.reply("Starting download").await?;
+    let download_id = {
+        let mut counter = DOWNLOAD_ID_COUNTER.lock().unwrap();
+        if *counter == 255 {
+            *counter = 0;
+        }
+        *counter = counter.wrapping_add(1);
+        *counter
+    };
+
+    let button_id: &[u8] = &[DOWNLOAD_ID_QUERY, download_id];
+    log::debug!("Downloading: {:?}", button_id);
+    let cancel_token = CancellationToken::new();
+    {
+        let mut cancel_map = CANCEL_DOWNLOAD.lock().unwrap();
+        cancel_map.insert(download_id, cancel_token.clone());
+    }
+
+    let reply_message = message
+        .reply(
+            InputMessage::text("Starting download").reply_markup(&reply_markup::inline(vec![
+                vec![button::inline("Cancel", button_id)],
+            ])),
+        )
+        .await?;
 
     // Create HTTP client
     let client = reqwest::Client::new();
@@ -86,43 +113,64 @@ pub async fn handle_url(bot: Client, message: Message) -> ResultGram<()> {
     let mut downloaded: f64 = 0.0;
 
     while let Some(chunk) = response.chunk().await? {
-        file.write_all(&chunk)?;
-        downloaded += chunk.len() as f64;
-        // Update progress every 5 sec
-        if last_update_time.elapsed().as_secs() >= 5 {
-            let speed_mbps = ((downloaded - last_downloaded_size as f64) / (1024.0 * 1024.0))
-                / last_update_time.elapsed().as_secs_f64();
-            last_downloaded_size = downloaded as usize;
-            last_update_time = Instant::now();
+        if cancel_token.is_cancelled() {
+            delete_file(dest.clone()).await;
+            break;
+        } else {
+            file.write_all(&chunk)?;
+            downloaded += chunk.len() as f64;
+            // Update progress every 5 sec
+            if last_update_time.elapsed().as_secs() >= 5 {
+                let speed_mbps = ((downloaded - last_downloaded_size as f64) / (1024.0 * 1024.0))
+                    / last_update_time.elapsed().as_secs_f64();
+                last_downloaded_size = downloaded as usize;
+                last_update_time = Instant::now();
 
-            let progress_text = format_message(
-                media_name.as_str(),
-                downloaded,
-                total_size as f64,
-                speed_mbps,
-            );
+                let progress_text = format_message(
+                    media_name.as_str(),
+                    downloaded,
+                    total_size as f64,
+                    speed_mbps,
+                );
 
-            if last_progress_text != progress_text {
-                reply_message.edit(progress_text.clone()).await?;
-                last_progress_text = progress_text;
+                if last_progress_text != progress_text {
+                    reply_message
+                        .edit(InputMessage::text(progress_text.clone()).reply_markup(
+                            &reply_markup::inline(vec![vec![button::inline("Cancel", button_id)]]),
+                        ))
+                        .await?;
+                    last_progress_text = progress_text;
+                }
             }
         }
     }
 
     reply_message.delete().await?;
-    let download_complete_time = start_time.elapsed().as_secs();
-    let mut download_time: String = format!("{download_complete_time} sec");
-    if download_complete_time > 60 {
-        download_time = format!("{:.1} min", download_complete_time / 60);
+
+    if cancel_token.is_cancelled() {
+        message.reply("Download Cancelled").await?;
+    } else {
+        let download_complete_time = start_time.elapsed().as_secs();
+        let mut download_time: String = format!("{download_complete_time} sec");
+        if download_complete_time > 60 {
+            download_time = format!("{:.1} min", download_complete_time / 60);
+        }
+        if download_complete_time > 3600 {
+            download_time = format!("{:.1} hr", download_complete_time / 3600);
+        }
+        message
+            .reply(format!(
+                "Download Completed in {} \nStored at: {}",
+                download_time, dest
+            ))
+            .await?;
     }
-    if download_complete_time > 3600 {
-        download_time = format!("{:.1} hr", download_complete_time / 3600);
+
+    // Remove from map
+    {
+        let mut cancel_map = CANCEL_DOWNLOAD.lock().unwrap();
+        cancel_map.remove(&button_id[0]);
     }
-    message
-        .reply(format!(
-            "Download Completed in {} \nStored at: {}",
-            download_time, dest
-        ))
-        .await?;
+
     return Ok(());
 }

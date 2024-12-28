@@ -6,10 +6,11 @@ use grammers_client::types::Media;
 use grammers_client::types::Message;
 use grammers_client::{button, grammers_tl_types, reply_markup, InputMessage, InvocationError};
 use grammers_tl_types as tl;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::{
     io::SeekFrom,
     sync::atomic::{AtomicI64, Ordering},
-    sync::Arc,
     time::Instant,
 };
 use tokio::sync::mpsc::unbounded_channel;
@@ -18,6 +19,13 @@ use tokio::{
     io::{self, AsyncSeekExt, AsyncWriteExt},
 };
 use tokio_util::sync::CancellationToken;
+
+lazy_static::lazy_static! {
+   pub static ref CANCEL_DOWNLOAD: Arc<Mutex<HashMap<u8, CancellationToken>>> = Arc::new(Mutex::new(HashMap::new()));
+   pub static ref DOWNLOAD_ID_COUNTER: Arc<Mutex<u8>> = Arc::new(Mutex::new(0));
+}
+
+pub const DOWNLOAD_ID_QUERY: u8 = 192;
 
 /// Modified Version of `download_media_concurrent` from library
 /// Implement Cancellation of Download, and sends DownloadProgress to user
