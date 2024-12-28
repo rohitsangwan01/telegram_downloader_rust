@@ -1,4 +1,5 @@
 use super::custom_result::ResultGram;
+use super::helper::ask_query;
 use crate::Client;
 use grammers_client::client::files::MAX_CHUNK_SIZE;
 use grammers_client::types::Media;
@@ -180,7 +181,7 @@ pub async fn download_media_concurrent(
 }
 
 /// Format the message sent to Bot
-fn format_message(name: &str, downloaded_size: f64, total_size: f64, speed: f64) -> String {
+pub fn format_message(name: &str, downloaded_size: f64, total_size: f64, speed: f64) -> String {
     let bar_width = 10;
 
     let progress = if total_size > 0.0 {
@@ -215,4 +216,24 @@ pub async fn delete_file(path: String) {
     } else {
         log::info!("File deleted successfully")
     }
+}
+
+pub async fn should_download_with_default_filename(
+    bot: Client,
+    message: Message,
+    name: String,
+) -> ResultGram<bool> {
+    let options: Vec<String> = vec!["Yes".to_string(), "No".to_string()];
+    let choosed_option = match ask_query(
+        bot.clone(),
+        message,
+        format!("Download with default filename: \n{}", name).as_str(),
+        options.clone(),
+    )
+    .await?
+    {
+        Some(option) => option,
+        None => return Ok(false),
+    };
+    return Ok(choosed_option == 0);
 }

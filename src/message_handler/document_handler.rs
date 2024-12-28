@@ -1,7 +1,9 @@
 use crate::utils::custom_result::ResultGram;
-use crate::utils::download_utils::{delete_file, download_media_concurrent};
-use crate::utils::helper::{ask_query, get_custom_file_name, get_directory, get_document};
-use grammers_client::types::{media, Message};
+use crate::utils::download_utils::{
+    delete_file, download_media_concurrent, should_download_with_default_filename,
+};
+use crate::utils::helper::{get_custom_file_name, get_directory, get_document};
+use grammers_client::types::Message;
 use grammers_client::Client;
 use std::collections::HashMap;
 use std::fs::create_dir_all;
@@ -23,9 +25,12 @@ pub async fn handle_document(bot: Client, message: Message) -> ResultGram<()> {
         return Ok(());
     }
 
-    let use_default_file_name =
-        should_download_with_default_filename(bot.clone(), message.clone(), document.clone())
-            .await?;
+    let use_default_file_name = should_download_with_default_filename(
+        bot.clone(),
+        message.clone(),
+        document.clone().name().to_string(),
+    )
+    .await?;
 
     log::info!("DefaulFileName: {use_default_file_name}");
 
@@ -124,24 +129,4 @@ pub async fn cancel_download(id: &[u8]) -> String {
         cancel_token.cancel();
     }
     return "Download will be canceled shortly".to_string();
-}
-
-pub async fn should_download_with_default_filename(
-    bot: Client,
-    message: Message,
-    document: media::Document,
-) -> ResultGram<bool> {
-    let options: Vec<String> = vec!["Yes".to_string(), "No".to_string()];
-    let choosed_option = match ask_query(
-        bot.clone(),
-        message,
-        format!("Download with default filename: \n{}", document.name()).as_str(),
-        options.clone(),
-    )
-    .await?
-    {
-        Some(option) => option,
-        None => return Ok(false),
-    };
-    return Ok(choosed_option == 0);
 }
