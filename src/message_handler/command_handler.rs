@@ -1,7 +1,7 @@
 use crate::utils::custom_result::ResultGram;
 use crate::utils::helper::{get_custom_file_name, get_directory};
-use grammers_client::types::{Chat, Message};
 use grammers_client::Client;
+use grammers_client::types::{Chat, Message};
 use local_ip_address::local_ip;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
@@ -14,14 +14,26 @@ const HELP_COMMAND: &str = "/help";
 const GDOWN_COMMAND: &str = "/gdown";
 const SPEED_TEST_COMMAND: &str = "/speed";
 
-pub async fn handle_command(bot: Client, chat: Chat, message: Message) -> ResultGram<()> {
+const ALLOWED_COMMANDS_FOR_NON_ADMIN: [&str; 3] = [START_COMMAND, HELP_COMMAND, SPEED_TEST_COMMAND];
+
+pub async fn handle_command(
+    bot: Client,
+    chat: Chat,
+    message: Message,
+    is_allowed: bool,
+) -> ResultGram<()> {
     let command: &str = message.text();
 
-    if command.contains(GDOWN_COMMAND) {
-        download_gdrive(bot.clone(), message.clone()).await?;
+    if !is_allowed && !ALLOWED_COMMANDS_FOR_NON_ADMIN.contains(&command) {
+        message.reply("Not Allowed to use this command").await?;
         return Ok(());
-    } else if command.contains(SPEED_TEST_COMMAND) {
+    }
+
+    if command.contains(SPEED_TEST_COMMAND) {
         handle_speedtest(message.clone()).await?;
+        return Ok(());
+    } else if command.contains(GDOWN_COMMAND) {
+        download_gdrive(bot.clone(), message.clone()).await?;
         return Ok(());
     }
 
@@ -31,30 +43,38 @@ pub async fn handle_command(bot: Client, chat: Chat, message: Message) -> Result
         IP_COMMAND => handle_ip(),
         INFO_COMMAND => handle_system_info(),
         REBOOT_COMMAND => handle_reboot(),
-        _ => handle_help(chat.clone()),
+        _ => handle_help(chat.clone(), is_allowed),
     };
     message.reply(response).await?;
     return Ok(());
 }
 
-fn handle_help(chat: Chat) -> String {
-    let name: &str = chat.name();
-    return format!(
-        "Hey {name}, Use these Commadns:.\n\
-        {START_COMMAND} : To start the bot\n\
-        {IP_COMMAND} : Get your IP\n\
-        {SPEED_TEST_COMMAND}: Get network speed\n\
-        {INFO_COMMAND}: To get system information\n\
-        {HELP_COMMAND}: To get help\n\
-        {GDOWN_COMMAND}: To download gdrive files\n\
-        {REBOOT_COMMAND}: To reboot the machine\n\
-        \nor send files to download"
+fn handle_help(chat: Chat, is_allowed: bool) -> String {
+    let name: &str = chat.name().unwrap_or("N/A");
+    let mut commands = vec![
+        format!("{START_COMMAND}: To start the bot"),
+        format!("{HELP_COMMAND}: To get help"),
+        format!("{SPEED_TEST_COMMAND}: Get network speed"),
+    ];
+
+    if is_allowed {
+        commands.extend(vec![
+            format!("{IP_COMMAND}: Get your IP"),
+            format!("{INFO_COMMAND}: To get system information"),
+            format!("{GDOWN_COMMAND}: To download gdrive files"),
+            format!("{REBOOT_COMMAND}: To reboot the machine"),
+        ]);
+    }
+
+    format!(
+        "Hey {name}, Use these commands:\n{}\n\
+        \nor send files to download",
+        commands.join("\n")
     )
-    .to_string();
 }
 
 fn handle_start(chat: Chat) -> String {
-    let name = chat.name();
+    let name = chat.name().unwrap_or("N/A");
     return format!("Welcom {}, Send me files to download", name).to_string();
 }
 

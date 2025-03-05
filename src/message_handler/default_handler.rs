@@ -6,7 +6,12 @@ use crate::utils::helper::get_document;
 use grammers_client::{Client, Update};
 use url::Url;
 
-pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
+pub async fn handle_update(
+    bot: Client,
+    update: Update,
+    user_id: i64,
+    allow_admin_only: bool,
+) -> ResultUpdate {
     // Handle only messages sent by users
     let message = match update {
         Update::NewMessage(message) => {
@@ -23,15 +28,28 @@ pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     };
     let chat = message.chat();
 
-    // Handle Document if available
-    if get_document(message.clone()).is_some() {
-        handle_document(bot, message).await?;
-        return Ok(());
+    let mut is_allowed = true;
+    if let Some(chat) = message.sender() {
+        if allow_admin_only && user_id != chat.id() {
+            is_allowed = false;
+        }
     }
 
     // Check if a message start with /, to handle as command
     if message.text().starts_with("/") {
-        handle_command(bot, chat, message).await?;
+        handle_command(bot, chat, message, is_allowed).await?;
+        return Ok(());
+    }
+
+    if !is_allowed {
+        bot.send_message(&chat, "You are not allowed to use this functionality /help")
+            .await?;
+        return Ok(());
+    }
+
+    // Handle Document if available
+    if get_document(message.clone()).is_some() {
+        handle_document(bot, message).await?;
         return Ok(());
     }
 

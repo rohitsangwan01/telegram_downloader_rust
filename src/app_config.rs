@@ -10,6 +10,7 @@ pub struct AppConfig {
     pub bot_token: String,
     pub download_directory: Vec<String>,
     pub user_id: i64,
+    pub allow_admin_only: bool,
 }
 
 impl AppConfig {
@@ -19,6 +20,7 @@ impl AppConfig {
             api_hash: parse_env("TELEGRAM_API_HASH").ok_or("TELEGRAM_API_HASH not found")?,
             bot_token: parse_env("BOT_TOKEN").ok_or("BOT_TOKEN not found")?,
             user_id: parse_env("USER_ID").ok_or("USER_ID not found")?,
+            allow_admin_only: parse_env("ALLOW_ADMIN_ONLY").ok_or("ALLOW_ADMIN_ONLY not found")?,
             download_directory: parse_env::<String>("DOWNLOAD_DIRECTORY")
                 .ok_or("DOWNLOAD_DIRECTORY not found")?
                 .split(',')
