@@ -16,6 +16,13 @@ const SPEED_TEST_COMMAND: &str = "/speed";
 
 const ALLOWED_COMMANDS_FOR_NON_ADMIN: [&str; 3] = [START_COMMAND, HELP_COMMAND, SPEED_TEST_COMMAND];
 
+fn extract_command(input: &str) -> &str {
+    input
+        .split(|c: char| c == '@' || c == ' ')
+        .next()
+        .unwrap_or("")
+}
+
 pub async fn handle_command(
     bot: Client,
     chat: Chat,
@@ -23,8 +30,8 @@ pub async fn handle_command(
     is_allowed: bool,
 ) -> ResultGram<()> {
     let command: &str = message.text();
-
-    if !is_allowed && !ALLOWED_COMMANDS_FOR_NON_ADMIN.contains(&command) {
+    let command_only = extract_command(command);
+    if !is_allowed && !ALLOWED_COMMANDS_FOR_NON_ADMIN.contains(&command_only) {
         message.reply("Not Allowed to use this command").await?;
         return Ok(());
     }

@@ -1,3 +1,4 @@
+use crate::app_config::get_config;
 use crate::message_handler::document_handler::handle_document;
 use crate::message_handler::query_handler::handle_query;
 use crate::message_handler::{command_handler::handle_command, url_handler::handle_url};
@@ -6,12 +7,7 @@ use crate::utils::helper::get_document;
 use grammers_client::{Client, Update};
 use url::Url;
 
-pub async fn handle_update(
-    bot: Client,
-    update: Update,
-    user_id: i64,
-    allow_admin_only: bool,
-) -> ResultUpdate {
+pub async fn handle_update(bot: Client, update: Update) -> ResultUpdate {
     // Handle only messages sent by users
     let message = match update {
         Update::NewMessage(message) => {
@@ -28,10 +24,12 @@ pub async fn handle_update(
     };
     let chat = message.chat();
 
-    let mut is_allowed = true;
+    let app_config = get_config();
+
+    let mut is_allowed = false;
     if let Some(chat) = message.sender() {
-        if allow_admin_only && user_id != chat.id() {
-            is_allowed = false;
+        if app_config.admins.contains(&chat.id()) {
+            is_allowed = true;
         }
     }
 

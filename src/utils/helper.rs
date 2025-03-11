@@ -1,17 +1,22 @@
 use grammers_client::session::PackedType;
 use grammers_client::types::Media::Document;
-use grammers_client::types::{media, CallbackQuery, Message, PackedChat};
-use grammers_client::{button, reply_markup, Client, InputMessage, Update};
-use tokio::time::{timeout, Duration};
+use grammers_client::types::{CallbackQuery, Message, PackedChat, media};
+use grammers_client::{Client, InputMessage, Update, button, reply_markup};
+use tokio::time::{Duration, timeout};
 
-use crate::app_config::AppConfig;
+use crate::app_config::get_config;
 
 use super::custom_result::ResultGram;
 
-pub async fn send_message_to_user(bot: Client, user_id: i64, message: &str) -> ResultGram<()> {
+pub async fn send_message_to_chat(
+    bot: Client,
+    user_id: i64,
+    packed_type: PackedType,
+    message: &str,
+) -> ResultGram<()> {
     let chat = bot
         .unpack_chat(PackedChat {
-            ty: PackedType::User,
+            ty: packed_type,
             id: user_id,
             access_hash: Some(0),
         })
@@ -22,8 +27,7 @@ pub async fn send_message_to_user(bot: Client, user_id: i64, message: &str) -> R
 
 /// Get Directory from user if there are more then one director in env
 pub async fn get_directory(bot: Client, message: Message) -> ResultGram<Option<String>> {
-    let config = AppConfig::from_env().unwrap();
-    let download_directories: Vec<String> = config.download_directory;
+    let download_directories: Vec<String> = get_config().download_directory.clone();
 
     if download_directories.len() == 1 {
         let dest: String = download_directories[0].clone();
